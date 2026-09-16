@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카드 랩 · 라이브 테이블</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+  :root{
+    --ink:#0e1310; --felt:#153427; --felt-2:#1c4433; --gold:#c9a227; --gold-soft:#e6c65c;
+    --paper:#f7f2e7; --text:#f0ece1; --muted:#8fa89a; --red:#a3323d; --black:#1c211e;
+    --line: rgba(240,236,225,0.12); --blue:#7fa0c7;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 800px at 50% -10%, #16261e 0%, var(--ink) 55%);
+    color:var(--text); font-family:'Inter', system-ui, sans-serif; min-height:100vh; padding:28px 16px 60px;
+  }
+  .wrap{ max-width:980px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:16px; flex-wrap:wrap; }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .mark{ font-family:'Fraunces', serif; font-weight:600; font-size:26px; }
+  .brand .sub{ color:var(--muted); font-size:13px; }
+  .who{ display:flex; align-items:center; gap:14px; }
+  .who .name{ font-size:13px; color:var(--muted); }
+  .who .name b{ color:var(--gold-soft); }
+  .who a, .who button.link{ font-size:12px; color:var(--muted); text-decoration:none; border:none; background:none; cursor:pointer; padding:0; font-family:'Inter', sans-serif; }
+  .who a:hover, .who button.link:hover{ color:var(--gold-soft); }
+  .balance{ text-align:right; position:relative; }
+  .balance .amt{ font-family:'Fraunces', serif; font-size:26px; font-weight:600; color:var(--gold-soft); font-variant-numeric: tabular-nums; transition: text-shadow 0.2s, color 0.2s; }
+  .balance .amt.balance-up{ color:#a8f0b8; text-shadow: 0 0 14px rgba(168,240,184,0.7); }
+  .balance .amt.balance-down{ color:#e08a92; text-shadow: 0 0 14px rgba(224,138,146,0.5); }
+  .balance .lbl{ color:var(--muted); font-size:11px; }
+  .float-gain{ position:absolute; right:0; top:-4px; font-family:'Fraunces', serif; font-weight:700; font-size:14px; color:#8de29c; pointer-events:none; animation: floatUp 1.15s ease forwards; }
+  .float-gain.neg{ color:#e08a92; }
+  @keyframes floatUp{ 0%{ opacity:0; transform:translateY(4px) scale(0.9); } 15%{ opacity:1; transform:translateY(0) scale(1.05); } 100%{ opacity:0; transform:translateY(-30px) scale(1); } }
+
+  .winner-banner{
+    text-align:center; font-family:'Fraunces', serif; font-size:14px; color:var(--gold-soft);
+    background: rgba(201,162,39,0.12); border:1px solid rgba(230,198,92,0.3); border-radius:10px;
+    padding:9px; margin-bottom:14px; min-height:16px; display:none;
+  }
+  .winner-banner.show{ display:block; animation: winnerPop 0.4s ease; }
+  @keyframes winnerPop{ 0%{ transform:scale(0.96); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+
+  .layout{ display:grid; grid-template-columns: 1fr 250px; gap:16px; }
+  @media (max-width: 800px){ .layout{ grid-template-columns:1fr; } }
+
+  .table{ background: linear-gradient(180deg, var(--felt-2), var(--felt)); border:1px solid rgba(230,198,92,0.18); border-radius:18px; padding:24px 20px 20px; position:relative; overflow:hidden; }
+  .table::before{ content:""; position:absolute; inset:8px; border:1px solid rgba(230,198,92,0.14); border-radius:12px; pointer-events:none; }
+  .round-status{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; font-size:12px; color:var(--muted); }
+  .phase-pill{ padding:4px 12px; border-radius:999px; font-weight:600; font-size:11px; background:rgba(230,198,92,0.12); color:var(--gold-soft); letter-spacing:0.03em; }
+  .phase-pill.reveal{ background:rgba(163,50,61,0.18); color:#e08a92; }
+  .timer{ font-variant-numeric: tabular-nums; }
+
+  .zones{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .zone{ padding:16px 14px 18px; border-radius:12px; background: rgba(14,19,16,0.28); min-height:170px; display:flex; flex-direction:column; position:relative; }
+  .zone.win{ box-shadow: inset 0 0 0 2px var(--gold), 0 0 22px rgba(230,198,92,0.35); animation: zoneGlow 0.7s ease; }
+  @keyframes zoneGlow{ 0%{ box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 rgba(230,198,92,0); } 40%{ box-shadow: inset 0 0 0 2px var(--gold), 0 0 30px rgba(230,198,92,0.55); } 100%{ box-shadow: inset 0 0 0 2px var(--gold), 0 0 22px rgba(230,198,92,0.35); } }
+  .zone-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
+  .zone-title{ font-family:'Fraunces', serif; font-size:15px; letter-spacing:0.06em; color:var(--gold-soft); }
+  .zone-title.player{ color:#cfe3d6; }
+  .zone-score{ font-family:'Fraunces', serif; font-size:32px; font-weight:600; font-variant-numeric: tabular-nums; }
+  .pair-tag{ font-size:10px; color:var(--blue); border:1px solid rgba(127,160,199,0.4); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+  .bettor-count{ font-size:11px; color:var(--muted); margin-bottom:10px; }
+  .cards{ display:flex; gap:9px; flex-wrap:wrap; align-items:flex-start; min-height:88px; }
+  .card{ width:56px; height:80px; border-radius:7px; background:var(--paper); display:flex; flex-direction:column; justify-content:space-between; padding:6px 7px; box-shadow:0 6px 14px rgba(0,0,0,0.35); font-family:'Fraunces', serif; font-weight:600; opacity:0; transform:translateY(-14px) scale(0.92); animation: deal 0.55s ease forwards; }
+  .card.red{ color:var(--red); } .card.black{ color:var(--black); }
+  .card .rank{ font-size:16px; line-height:1; }
+  .card .suit{ font-size:18px; align-self:center; }
+  .card .rank.bottom{ align-self:flex-end; transform:rotate(180deg); }
+  @keyframes deal{ to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  .result-banner{ text-align:center; font-family:'Fraunces', serif; font-size:19px; color:var(--gold-soft); min-height:26px; margin:10px 0 2px; }
+  .my-result-line{ text-align:center; font-size:13px; font-weight:600; min-height:18px; margin-top:2px; }
+  .my-result-line.win{ color:#8de29c; }
+  .my-result-line.lose{ color:#c98a90; }
+
+  .confetti-piece{ position:absolute; width:7px; height:11px; border-radius:2px; top:46%; left:50%; pointer-events:none; animation: confettiBurst 0.9s ease-out forwards; }
+  @keyframes confettiBurst{ 0%{ opacity:1; transform: translate(0,0) rotate(0deg); } 100%{ opacity:0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
+
+  .betting{ margin-top:16px; display:flex; flex-direction:column; gap:12px; }
+  .bet-group-label{ font-size:11.5px; color:var(--muted); margin:2px 0 -2px; letter-spacing:0.02em; }
+  .bet-row{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  @media (max-width:640px){ .bet-row{ grid-template-columns:repeat(2, 1fr); } }
+  .bet-btn{ border:1px solid var(--line); background: rgba(240,236,225,0.04); color:var(--text); border-radius:10px; padding:10px 6px; cursor:pointer; font-family:'Inter', sans-serif; display:flex; flex-direction:column; gap:3px; align-items:center; transition: border-color 0.15s, background 0.15s; }
+  .bet-btn:hover{ border-color:rgba(230,198,92,0.5); background:rgba(230,198,92,0.06); }
+  .bet-btn.active{ border-color:var(--gold); background: rgba(201,162,39,0.14); }
+  .bet-btn.pair-bet.active{ border-color:var(--blue); background: rgba(127,160,199,0.14); }
+  .bet-btn .name{ font-weight:600; font-size:12.5px; }
+  .bet-btn .odds{ color:var(--muted); font-size:10.5px; }
+  .bet-btn.active .odds{ color:var(--gold-soft); }
+  .bet-btn.pair-bet.active .odds{ color:var(--blue); }
+  .bet-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .stake-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .chip{ border:1px solid var(--line); background:rgba(240,236,225,0.04); color:var(--text); border-radius:999px; padding:7px 13px; cursor:pointer; font-size:12.5px; font-weight:600; }
+  .chip:hover{ border-color:rgba(230,198,92,0.5); }
+  .chip:disabled{ opacity:0.4; cursor:not-allowed; }
+  .chip.minus{ color:#e08a92; }
+  .chip.reset-chip{ color:var(--muted); }
+  .stake-display{ margin-left:auto; font-family:'Fraunces', serif; font-size:17px; color:var(--gold-soft); font-variant-numeric: tabular-nums; }
+
+  .actions{ display:flex; gap:10px; margin-top:2px; }
+  .place-btn{ flex:1; background: linear-gradient(180deg, var(--gold-soft), var(--gold)); border:none; color:#231a04; font-weight:700; font-size:14px; padding:13px; border-radius:10px; cursor:pointer; font-family:'Inter', sans-serif; transition: filter 0.15s; }
+  .place-btn:hover{ filter:brightness(1.05); }
+  .place-btn:disabled{ opacity:0.4; cursor:not-allowed; filter:none; }
+  .locked-note{ text-align:center; color:var(--muted); font-size:12px; margin-top:2px; }
+  .low-balance-note{ text-align:center; color:#e08a92; font-size:12px; margin-top:2px; }
+
+  .history{ margin-top:16px; display:flex; gap:6px; flex-wrap:wrap; }
+  .hist-dot{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#0e1310; }
+  .hist-dot.P{ background:#cfe3d6; } .hist-dot.B{ background:var(--gold-soft); } .hist-dot.T{ background:var(--blue); }
+
+  .side-panel{ display:flex; flex-direction:column; gap:14px; }
+  .panel-box{ background: rgba(21,52,39,0.5); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .panel-title{ font-family:'Fraunces', serif; font-size:13px; color:var(--gold-soft); margin-bottom:10px; letter-spacing:0.03em; }
+  .presence{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .bet-list{ display:flex; flex-direction:column; gap:7px; max-height:220px; overflow-y:auto; }
+  .bet-list-item{ display:flex; justify-content:space-between; font-size:12.5px; padding:6px 8px; background:rgba(14,19,16,0.35); border-radius:8px; }
+  .bet-list-item .side-tag{ color:var(--gold-soft); font-weight:600; }
+  .bet-list-empty{ color:var(--muted); font-size:12px; }
+
+  .note{ margin-top:16px; color:var(--muted); font-size:11.5px; line-height:1.7; }
+  .note b{ color:var(--text); }
+
+  .blocked{
+    max-width:420px; margin:80px auto; text-align:center; background: linear-gradient(180deg, var(--felt-2), var(--felt));
+    border:1px solid rgba(230,198,92,0.2); border-radius:16px; padding:30px 24px; display:none;
+  }
+  .blocked h2{ font-family:'Fraunces', serif; margin:0 0 8px; }
+  .blocked p{ color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app-wrap">
+  <header>
+    <div class="brand">
+      <div class="mark">카드 랩 · 라이브 테이블</div>
+      <div class="sub">같은 슈를 보는 실시간 공유 바카라 (가상 칩 전용)</div>
+    </div>
+    <div class="who">
+      <div class="name">플레이어 <b id="my-name">–</b></div>
+      <a href="admin.html" id="admin-link" style="display:none;">관리자 페이지</a>
+      <button class="link" id="logout-btn">로그아웃</button>
+      <div class="balance">
+        <div class="amt" id="balance">–</div>
+        <div class="lbl">보유 칩</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="winner-banner" id="winner-banner"></div>
+
+  <div class="layout">
+    <div class="table">
+      <div class="round-status">
+        <span id="phase-pill" class="phase-pill">베팅 중</span>
+        <span class="timer" id="timer">–</span>
+      </div>
+
+      <div class="zones">
+        <div class="zone" id="zone-player">
+          <div class="zone-head">
+            <span class="zone-title player">PLAYER<span class="pair-tag" id="p-pair-tag" style="display:none;">PAIR</span></span>
+            <span class="zone-score" id="player-score">–</span>
+          </div>
+          <div class="bettor-count" id="player-count">베팅 0명</div>
+          <div class="cards" id="player-cards"></div>
+        </div>
+        <div class="zone" id="zone-banker">
+          <div class="zone-head">
+            <span class="zone-title">BANKER<span class="pair-tag" id="b-pair-tag" style="display:none;">PAIR</span></span>
+            <span class="zone-score" id="banker-score">–</span>
+          </div>
+          <div class="bettor-count" id="banker-count">베팅 0명</div>
+          <div class="cards" id="banker-cards"></div>
+        </div>
+      </div>
+
+      <div class="result-banner" id="result-banner"></div>
+      <div class="my-result-line" id="my-result-line"></div>
+
+      <div class="betting">
+        <div class="bet-group-label">메인 베팅 (필수)</div>
+        <div class="bet-row">
+          <button class="bet-btn main-bet" data-bet="player"><span class="name">플레이어</span><span class="odds">1:1</span></button>
+          <button class="bet-btn main-bet" data-bet="tie"><span class="name">타이</span><span class="odds">8:1</span></button>
+          <button class="bet-btn main-bet" data-bet="banker"><span class="name">뱅커</span><span class="odds">0.95:1</span></button>
+        </div>
+        <div class="stake-row">
+          <button class="chip minus main-chip" data-chip="-100">-100</button>
+          <button class="chip minus main-chip" data-chip="-10">-10</button>
+          <button class="chip main-chip" data-chip="10">+10</button>
+          <button class="chip main-chip" data-chip="100">+100</button>
+          <button class="chip reset-chip main-chip" data-chip="reset">초기화</button>
+          <span class="stake-display">메인 베팅액 <span id="main-stake-amt">0</span></span>
+        </div>
+
+        <div class="bet-group-label">페어 사이드 베팅 (선택, 메인 베팅 필요)</div>
+        <div class="bet-row">
+          <button class="bet-btn pair-bet active" data-pair="none"><span class="name">안 함</span><span class="odds">–</span></button>
+          <button class="bet-btn pair-bet" data-pair="playerPair"><span class="name">플레이어 페어</span><span class="odds">11:1</span></button>
+          <button class="bet-btn pair-bet" data-pair="bankerPair"><span class="name">뱅커 페어</span><span class="odds">11:1</span></button>
+        </div>
+        <div class="stake-row">
+          <button class="chip minus pair-chip" data-chip="-100">-100</button>
+          <button class="chip minus pair-chip" data-chip="-10">-10</button>
+          <button class="chip pair-chip" data-chip="10">+10</button>
+          <button class="chip pair-chip" data-chip="100">+100</button>
+          <button class="chip reset-chip pair-chip" data-chip="reset">초기화</button>
+          <span class="stake-display">페어 베팅액 <span id="pair-stake-amt">0</span></span>
+        </div>
+
+        <div class="actions">
+          <button class="place-btn" id="place-btn">베팅 확정</button>
+        </div>
+        <div class="locked-note" id="locked-note"></div>
+        <div class="low-balance-note" id="low-balance-note"></div>
+      </div>
+
+      <div class="history" id="history"></div>
+
+      <div class="note">
+        <b>동기화 방식</b> — 서버가 딜러 역할을 하며, 접속한 모든 사람에게 같은 카드를 동시에 전송합니다.<br>
+        <b>규칙</b> — 2~9는 그대로, 10·J·Q·K는 0, A는 1. 합이 10 이상이면 뒷자리만 사용. 8·9(내추럴)는 즉시 종료, 그 외엔 정해진 표에 따라 자동으로 3번째 카드를 받습니다.<br>
+        <b>칩</b> — 이 테이블의 칩은 실제 화폐 가치가 없는 재미용 가상 칩입니다. 셀프 충전은 없고, 부족하면 관리자에게 요청하세요.
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel-box">
+        <div class="panel-title">테이블 현황</div>
+        <div class="presence" id="presence">접속 인원 확인 중...</div>
+        <div class="bet-list" id="bet-list"><div class="bet-list-empty">이번 라운드 베팅 대기 중</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="blocked" id="blocked-panel">
+  <h2>입장할 수 없습니다</h2>
+  <p id="blocked-msg">관리자 승인 대기 중이거나 로그인이 만료되었습니다.</p>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function(){
+  const token = localStorage.getItem('cardlab_token');
+  if(!token){ window.location.href = 'login.html'; return; }
+
+  const CHIP = '칩';
+  const ODDS = { player:1, banker:0.95, tie:8, playerPair:11, bankerPair:11 };
+  const MAIN_CHIP_STEPS = { 10:10, 100:100 };
+
+  let balance = 0;
+  let mainStake = 0, pairStake = 0;
+  let selectedMain = null, selectedPair = 'none';
+  let myBetThisRound = null;
+  let phase = 'betting';
+  let endsAt = 0;
+  let roundId = 0;
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('cardlab_token');
+    localStorage.removeItem('cardlab_username');
+    window.location.href = 'login.html';
+  });
+
+  function betLabel(b){
+    return { player:'플레이어', banker:'뱅커', tie:'타이', playerPair:'플레이어 페어', bankerPair:'뱅커 페어' }[b] || b;
+  }
+  function fmtChip(n){ return n.toLocaleString('en-US') + CHIP; }
+
+  function renderStake(){
+    document.getElementById('main-stake-amt').textContent = mainStake.toLocaleString('en-US');
+    document.getElementById('pair-stake-amt').textContent = pairStake.toLocaleString('en-US');
+  }
+
+  function animateBalanceNumber(from, to){
+    const el = document.getElementById('balance');
+    if(from === to){ el.textContent = fmtChip(to); return; }
+    const duration = 550;
+    const start = performance.now();
+    function step(now){
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const val = Math.round(from + (to - from) * eased);
+      el.textContent = fmtChip(val);
+      if(t < 1) requestAnimationFrame(step);
+      else el.textContent = fmtChip(to);
+    }
+    requestAnimationFrame(step);
+    const cls = to > from ? 'balance-up' : 'balance-down';
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), duration + 200);
+  }
+
+  function setBalance(v){
+    const from = balance;
+    balance = v;
+    animateBalanceNumber(from, v);
+    updatePlaceEnabled();
+  }
+
+  function spawnFloatGain(amount){
+    const anchor = document.querySelector('.balance');
+    const span = document.createElement('div');
+    span.className = 'float-gain' + (amount < 0 ? ' neg' : '');
+    span.textContent = (amount >= 0 ? '+' : '') + fmtChip(amount);
+    anchor.appendChild(span);
+    setTimeout(() => span.remove(), 1200);
+  }
+
+  function spawnConfetti(){
+    const container = document.querySelector('.table');
+    const colors = ['#e6c65c', '#c9a227', '#f7f2e7', '#7fa0c7', '#cfe3d6'];
+    const pieces = 18;
+    for(let i = 0; i < pieces; i++){
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      const angle = (Math.PI * 2 * i) / pieces + (Math.random() * 0.5 - 0.25);
+      const dist = 90 + Math.random() * 90;
+      p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--dy', Math.sin(angle) * dist - 30 + 'px');
+      p.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.animationDelay = (Math.random() * 0.1) + 's';
+      container.appendChild(p);
+      setTimeout(() => p.remove(), 1100);
+    }
+  }
+
+  function cardEl(card, faceIndex){
+    const el = document.createElement('div');
+    el.className = `card ${card.color}`;
+    el.style.animationDelay = (faceIndex * 0.35) + 's';
+    el.innerHTML = `<div class="rank">${card.rank}</div><div class="suit">${card.suit}</div><div class="rank bottom">${card.rank}</div>`;
+    return el;
+  }
+
+  // ---------- betting UI ----------
+  document.querySelectorAll('.main-bet').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      selectedMain = btn.dataset.bet;
+      document.querySelectorAll('.main-bet').forEach(b => b.classList.toggle('active', b === btn));
+      updatePlaceEnabled();
+    });
+  });
+  document.querySelectorAll('.pair-bet').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      selectedPair = btn.dataset.pair;
+      document.querySelectorAll('.pair-bet').forEach(b => b.classList.toggle('active', b === btn));
+      if(selectedPair === 'none'){ pairStake = 0; renderStake(); }
+      updatePlaceEnabled();
+    });
+  });
+  document.querySelectorAll('.main-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      if(btn.dataset.chip === 'reset') mainStake = 0;
+      else mainStake = Math.max(0, mainStake + parseInt(btn.dataset.chip, 10));
+      renderStake(); updatePlaceEnabled();
+    });
+  });
+  document.querySelectorAll('.pair-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      if(selectedPair === 'none') return;
+      if(btn.dataset.chip === 'reset') pairStake = 0;
+      else pairStake = Math.max(0, pairStake + parseInt(btn.dataset.chip, 10));
+      renderStake(); updatePlaceEnabled();
+    });
+  });
+
+  function updatePlaceEnabled(){
+    const placeBtn = document.getElementById('place-btn');
+    const pairNeedsStake = selectedPair !== 'none';
+    const totalStake = mainStake + (pairNeedsStake ? pairStake : 0);
+    const validMain = !!selectedMain && mainStake > 0;
+    const validPair = !pairNeedsStake || pairStake > 0;
+    placeBtn.disabled = phase !== 'betting' || !!myBetThisRound || !validMain || !validPair || totalStake <= 0 || totalStake > balance;
+    document.getElementById('low-balance-note').textContent =
+      (totalStake > balance && totalStake > 0) ? `${CHIP}이 부족합니다. 관리자에게 충전을 요청하세요.` : '';
+  }
+
+  function lockBettingUI(){
+    document.querySelectorAll('.bet-btn').forEach(b => b.disabled = true);
+    document.querySelectorAll('.chip').forEach(b => b.disabled = true);
+    document.getElementById('place-btn').disabled = true;
+  }
+  function unlockBettingUI(){
+    document.querySelectorAll('.main-bet').forEach(b => { b.disabled = false; b.classList.remove('active'); });
+    document.querySelectorAll('.pair-bet').forEach(b => { b.disabled = false; b.classList.toggle('active', b.dataset.pair === 'none'); });
+    document.querySelectorAll('.chip').forEach(b => b.disabled = false);
+    mainStake = 0; pairStake = 0; selectedMain = null; selectedPair = 'none';
+    myBetThisRound = null;
+    renderStake();
+    document.getElementById('locked-note').textContent = '';
+    updatePlaceEnabled();
+  }
+
+  document.getElementById('place-btn').addEventListener('click', () => {
+    const pairActive = selectedPair !== 'none';
+    const totalStake = mainStake + (pairActive ? pairStake : 0);
+    if(!selectedMain || mainStake <= 0) return;
+    if(pairActive && pairStake <= 0) return;
+    if(totalStake > balance) return;
+
+    const payload = {
+      main: { side: selectedMain, amount: mainStake },
+      pair: pairActive ? { side: selectedPair, amount: pairStake } : null,
+    };
+    socket.emit('placeBet', payload);
+    myBetThisRound = payload;
+
+    const pairLabelText = pairActive ? ` + ${betLabel(selectedPair)} · ${fmtChip(pairStake)}` : '';
+    document.getElementById('locked-note').textContent =
+      `이번 라운드 베팅 완료: ${betLabel(selectedMain)} · ${fmtChip(mainStake)}${pairLabelText}`;
+    lockBettingUI();
+  });
+
+  // ---------- rendering ----------
+  function renderHistoryDots(hist){
+    const el = document.getElementById('history');
+    el.innerHTML = '';
+    hist.forEach(h => {
+      const dot = document.createElement('div');
+      const code = h === 'player' ? 'P' : h === 'banker' ? 'B' : 'T';
+      dot.className = `hist-dot ${code}`;
+      dot.textContent = code;
+      el.appendChild(dot);
+    });
+  }
+
+  function renderBetList(bets){
+    const listEl = document.getElementById('bet-list');
+    if(!bets || bets.length === 0){
+      listEl.innerHTML = '<div class="bet-list-empty">이번 라운드 베팅 대기 중</div>';
+      return;
+    }
+    const rows = bets.map(b => {
+      let label = betLabel(b.main.side) + ' · ' + fmtChip(b.main.amount);
+      if(b.pair) label += ' + ' + betLabel(b.pair.side) + ' · ' + fmtChip(b.pair.amount);
+      return `<div class="bet-list-item"><span>${b.username}</span><span class="side-tag">${label}</span></div>`;
+    });
+    listEl.innerHTML = rows.join('');
+  }
+
+  function renderCounts(counts){
+    if(!counts) return;
+    document.getElementById('player-count').textContent = `베팅 ${counts.player || 0}명`;
+    document.getElementById('banker-count').textContent = `베팅 ${counts.banker || 0}명`;
+  }
+
+  function showRoundResult(round){
+    const playerCardsEl = document.getElementById('player-cards');
+    const bankerCardsEl = document.getElementById('banker-cards');
+    document.getElementById('player-score').textContent = '–';
+    document.getElementById('banker-score').textContent = '–';
+    playerCardsEl.innerHTML = ''; bankerCardsEl.innerHTML = '';
+    document.getElementById('zone-player').classList.remove('win');
+    document.getElementById('zone-banker').classList.remove('win');
+    document.getElementById('p-pair-tag').style.display = round.playerPair ? 'inline-block' : 'none';
+    document.getElementById('b-pair-tag').style.display = round.bankerPair ? 'inline-block' : 'none';
+
+    round.playerCards.forEach((c, i) => playerCardsEl.appendChild(cardEl(c, i)));
+    round.bankerCards.forEach((c, i) => bankerCardsEl.appendChild(cardEl(c, i)));
+    document.getElementById('player-score').textContent = round.pTotal;
+    document.getElementById('banker-score').textContent = round.bTotal;
+
+    if(round.outcome === 'player') document.getElementById('zone-player').classList.add('win');
+    if(round.outcome === 'banker') document.getElementById('zone-banker').classList.add('win');
+    document.getElementById('result-banner').textContent =
+      { player:'플레이어 승', banker:'뱅커 승', tie:'타이' }[round.outcome] + (round.natural ? ' (내추럴)' : '');
+  }
+
+  function resetTableForNewRound(){
+    document.getElementById('result-banner').textContent = '';
+    document.getElementById('my-result-line').textContent = '';
+    document.getElementById('my-result-line').className = 'my-result-line';
+    document.getElementById('p-pair-tag').style.display = 'none';
+    document.getElementById('b-pair-tag').style.display = 'none';
+    document.getElementById('player-cards').innerHTML = '';
+    document.getElementById('banker-cards').innerHTML = '';
+    document.getElementById('player-score').textContent = '–';
+    document.getElementById('banker-score').textContent = '–';
+    document.getElementById('zone-player').classList.remove('win');
+    document.getElementById('zone-banker').classList.remove('win');
+    const wb = document.getElementById('winner-banner');
+    wb.classList.remove('show');
+    wb.textContent = '';
+  }
+
+  function tick(){
+    const now = Date.now();
+    const msLeft = Math.max(0, endsAt - now);
+    const seconds = Math.ceil(msLeft / 1000);
+    document.getElementById('timer').textContent =
+      (phase === 'betting' ? '베팅 마감까지 ' : '결과 공개 · 다음 라운드까지 ') + seconds + '초';
+    const pill = document.getElementById('phase-pill');
+    pill.textContent = phase === 'betting' ? '베팅 중' : '카드 공개';
+    pill.classList.toggle('reveal', phase === 'reveal');
+  }
+  setInterval(tick, 250);
+
+  // ---------- socket ----------
+  const socket = io({ auth: { token } });
+
+  socket.on('connect_error', (err) => {
+    document.getElementById('app-wrap').style.display = 'none';
+    const panel = document.getElementById('blocked-panel');
+    panel.style.display = 'block';
+    if(err && err.message === '승인 대기 중'){
+      document.getElementById('blocked-msg').textContent = '관리자 승인 대기 중입니다. 승인 후 다시 로그인해주세요.';
+    } else {
+      document.getElementById('blocked-msg').textContent = '로그인이 만료되었습니다. 다시 로그인해주세요.';
+      localStorage.removeItem('cardlab_token');
+    }
+    setTimeout(() => { window.location.href = 'login.html'; }, 2500);
+  });
+
+  socket.on('joined', (data) => {
+    document.getElementById('my-name').textContent = data.username;
+    if(data.isAdmin) document.getElementById('admin-link').style.display = 'inline';
+    balance = data.balance;
+    document.getElementById('balance').textContent = fmtChip(balance);
+
+    roundId = data.round.id; phase = data.round.phase; endsAt = data.round.endsAt;
+    myBetThisRound = data.myBet;
+
+    renderHistoryDots(data.history);
+    renderBetList(data.bets);
+    renderCounts(data.counts);
+
+    if(phase === 'reveal' && data.round.result){
+      showRoundResult(data.round.result);
+      lockBettingUI();
+    } else {
+      unlockBettingUI();
+      if(myBetThisRound) lockBettingUI();
+    }
+    tick();
+  });
+
+  socket.on('round:betting', (data) => {
+    roundId = data.roundId; phase = 'betting'; endsAt = data.endsAt;
+    resetTableForNewRound();
+    unlockBettingUI();
+    tick();
+  });
+
+  socket.on('round:reveal', (data) => {
+    roundId = data.roundId; phase = 'reveal'; endsAt = data.endsAt;
+    showRoundResult(data.round);
+    renderHistoryDots(data.history);
+    lockBettingUI();
+    tick();
+  });
+
+  socket.on('round:winner', (data) => {
+    const wb = document.getElementById('winner-banner');
+    wb.textContent = `🏆 ${data.username}님이 ${fmtChip(data.net)}을 따셨습니다!`;
+    wb.classList.add('show');
+  });
+
+  socket.on('bets:update', (data) => {
+    if(data.roundId === roundId){ renderBetList(data.bets); renderCounts(data.counts); }
+  });
+
+  socket.on('balance:update', (data) => { setBalance(data.balance); });
+
+  socket.on('settle', (data) => {
+    setBalance(data.balance);
+    const myResultLine = document.getElementById('my-result-line');
+    if(data.net > 0){
+      myResultLine.textContent = `내 베팅 적중! +${fmtChip(data.net)}`;
+      myResultLine.className = 'my-result-line win';
+      spawnFloatGain(data.net);
+      spawnConfetti();
+    } else if(data.net === 0){
+      myResultLine.textContent = '무승부 · 베팅액 환불';
+      myResultLine.className = 'my-result-line';
+    } else {
+      myResultLine.textContent = `이번 판은 아쉽네요 · ${fmtChip(data.net)}`;
+      myResultLine.className = 'my-result-line lose';
+      spawnFloatGain(data.net);
+    }
+  });
+
+  socket.on('presence:update', (data) => {
+    document.getElementById('presence').textContent = `현재 접속 인원: ${data.count}명`;
+  });
+
+  socket.on('errorMsg', (data) => {
+    document.getElementById('low-balance-note').textContent = data.message;
+  });
+})();
+</script>
+</body>
+</html>
