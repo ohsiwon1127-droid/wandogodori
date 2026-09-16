@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카드 랩 · 로그인</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+  :root{
+    --ink:#0e1310; --felt:#153427; --felt-2:#1c4433; --gold:#c9a227; --gold-soft:#e6c65c;
+    --text:#f0ece1; --muted:#8fa89a; --line:rgba(240,236,225,0.12); --red:#c98a90; --green:#8de29c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(1200px 800px at 50% -10%, #16261e 0%, var(--ink) 55%);
+    font-family:'Inter', system-ui, sans-serif; color:var(--text); padding:20px;
+  }
+  .card{
+    width:100%; max-width:380px; background: linear-gradient(180deg, var(--felt-2), var(--felt));
+    border:1px solid rgba(230,198,92,0.2); border-radius:18px; padding:30px 26px;
+  }
+  h1{ font-family:'Fraunces', serif; font-size:24px; margin:0 0 4px; text-align:center; }
+  .sub{ color:var(--muted); font-size:13px; text-align:center; margin:0 0 24px; }
+  .tabs{ display:flex; gap:8px; margin-bottom:20px; }
+  .tab{ flex:1; text-align:center; padding:10px; border-radius:10px; cursor:pointer; border:1px solid var(--line); color:var(--muted); font-weight:600; font-size:13px; }
+  .tab.active{ border-color:var(--gold); color:var(--gold-soft); background:rgba(201,162,39,0.1); }
+  label{ font-size:12px; color:var(--muted); display:block; margin:12px 0 6px; }
+  input{ width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:rgba(14,19,16,0.4); color:var(--text); font-size:14px; font-family:'Inter', sans-serif; }
+  input:focus{ outline:none; border-color:var(--gold); }
+  button.submit{ width:100%; margin-top:20px; background: linear-gradient(180deg, var(--gold-soft), var(--gold)); border:none; color:#231a04; font-weight:700; font-size:14px; padding:13px; border-radius:10px; cursor:pointer; }
+  button.submit:disabled{ opacity:0.5; cursor:not-allowed; }
+  .msg{ min-height:18px; font-size:12.5px; margin-top:12px; text-align:center; color:var(--red); }
+  .msg.ok{ color:var(--green); }
+  .hint{ color:var(--muted); font-size:11.5px; margin-top:16px; line-height:1.6; text-align:center; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>카드 랩</h1>
+    <p class="sub">실시간 라이브 바카라 테이블 (가상 칩 전용)</p>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">로그인</div>
+      <div class="tab" data-tab="signup">회원가입</div>
+    </div>
+
+    <div class="panel active" id="panel-login">
+      <label>아이디</label>
+      <input id="login-username" autocomplete="username">
+      <label>비밀번호</label>
+      <input id="login-password" type="password" autocomplete="current-password">
+      <button class="submit" id="login-btn">로그인</button>
+    </div>
+
+    <div class="panel" id="panel-signup">
+      <label>아이디 (영문/숫자/밑줄 3~16자, 중복 불가)</label>
+      <input id="signup-username" autocomplete="username">
+      <label>비밀번호 (4자 이상)</label>
+      <input id="signup-password" type="password" autocomplete="new-password">
+      <label>관리자 코드 (관리자만 입력, 일반 유저는 비워두세요)</label>
+      <input id="signup-admincode" autocomplete="off">
+      <button class="submit" id="signup-btn">가입 신청</button>
+      <div class="hint">일반 가입은 <b style="color:var(--text)">관리자 승인 후</b> 로그인할 수 있어요. 지급 칩은 없고, 승인 후 관리자에게 충전을 요청하세요.</div>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      setMsg('');
+    });
+  });
+
+  function setMsg(text, ok){
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = 'msg' + (ok ? ' ok' : '');
+  }
+
+  function afterAuth(data){
+    localStorage.setItem('cardlab_token', data.token);
+    localStorage.setItem('cardlab_username', data.username);
+    window.location.href = data.isAdmin ? 'admin.html' : 'game.html';
+  }
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if(!username || !password){ setMsg('아이디와 비밀번호를 입력하세요.'); return; }
+    setMsg('');
+    try{
+      const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+      const data = await r.json();
+      if(!r.ok){ setMsg(data.error || '로그인에 실패했습니다.'); return; }
+      afterAuth(data);
+    }catch(e){ setMsg('서버에 연결할 수 없습니다.'); }
+  });
+
+  document.getElementById('signup-btn').addEventListener('click', async () => {
+    const username = document.getElementById('signup-username').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const adminCode = document.getElementById('signup-admincode').value.trim();
+    if(!username || !password){ setMsg('아이디와 비밀번호를 입력하세요.'); return; }
+    setMsg('');
+    try{
+      const r = await fetch('/api/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password, adminCode }) });
+      const data = await r.json();
+      if(!r.ok){ setMsg(data.error || '회원가입에 실패했습니다.'); return; }
+      if(data.pending){
+        setMsg(data.message, true);
+        document.querySelector('.tab[data-tab="login"]').click();
+        return;
+      }
+      afterAuth(data);
+    }catch(e){ setMsg('서버에 연결할 수 없습니다.'); }
+  });
+
+  (function(){
+    const token = localStorage.getItem('cardlab_token');
+    if(token){
+      fetch('/api/me', { headers:{ Authorization: 'Bearer ' + token }})
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => { window.location.href = data.isAdmin ? 'admin.html' : 'game.html'; })
+        .catch(() => { localStorage.removeItem('cardlab_token'); });
+    }
+  })();
+</script>
+</body>
+</html>
