@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카드 랩 · 관리자</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+  :root{
+    --ink:#0e1310; --felt:#153427; --felt-2:#1c4433; --gold:#c9a227; --gold-soft:#e6c65c;
+    --text:#f0ece1; --muted:#8fa89a; --line:rgba(240,236,225,0.12); --red:#c98a90; --green:#8de29c; --blue:#7fa0c7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background: radial-gradient(1200px 800px at 50% -10%, #16261e 0%, var(--ink) 55%);
+    font-family:'Inter', system-ui, sans-serif; color:var(--text); padding:28px 16px 60px;
+  }
+  .wrap{ max-width:800px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  h1{ font-family:'Fraunces', serif; font-size:22px; margin:0; }
+  .sub{ color:var(--muted); font-size:13px; margin-top:2px; }
+  .nav{ display:flex; gap:14px; align-items:center; }
+  .nav a, .nav button{ color:var(--muted); text-decoration:none; font-size:13px; background:none; border:none; cursor:pointer; font-family:'Inter', sans-serif; }
+  .nav a:hover, .nav button:hover{ color:var(--gold-soft); }
+
+  .panel{ background: linear-gradient(180deg, var(--felt-2), var(--felt)); border:1px solid rgba(230,198,92,0.2); border-radius:16px; padding:20px; margin-bottom:18px; }
+  .panel h2{ font-family:'Fraunces', serif; font-size:15px; margin:0 0 14px; color:var(--gold-soft); display:flex; align-items:center; gap:8px; }
+  .badge{ background:rgba(230,198,92,0.18); color:var(--gold-soft); border-radius:999px; padding:1px 9px; font-size:11px; font-weight:700; }
+
+  .pending-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border-bottom:1px solid var(--line); font-size:13px; }
+  .pending-row:last-child{ border-bottom:none; }
+  .pending-actions{ display:flex; gap:6px; }
+  .approve-btn, .reject-btn{ border:none; border-radius:7px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; }
+  .approve-btn{ background: linear-gradient(180deg, var(--gold-soft), var(--gold)); color:#231a04; }
+  .reject-btn{ background:transparent; border:1px solid var(--red); color:var(--red); }
+  .empty-note{ color:var(--muted); font-size:12.5px; }
+
+  .recharge-form{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:11.5px; color:var(--muted); }
+  .field input, .field select{ padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:rgba(14,19,16,0.4); color:var(--text); font-size:13px; font-family:'Inter', sans-serif; min-width:160px; }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--gold); }
+  .mode-toggle{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .mode-toggle button{ border:none; background:transparent; color:var(--muted); padding:10px 14px; font-size:13px; cursor:pointer; font-weight:600; }
+  .mode-toggle button.active.add{ background:rgba(141,226,156,0.15); color:var(--green); }
+  .mode-toggle button.active.sub{ background:rgba(201,138,144,0.15); color:var(--red); }
+  button.action{ background: linear-gradient(180deg, var(--gold-soft), var(--gold)); border:none; color:#231a04; font-weight:700; font-size:13px; padding:11px 18px; border-radius:8px; cursor:pointer; }
+  button.action:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  table{ width:100%; border-collapse:collapse; margin-top:4px; }
+  th, td{ text-align:left; padding:9px 10px; font-size:13px; border-bottom:1px solid var(--line); }
+  th{ color:var(--muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; }
+  td.balance-cell{ font-family:'Fraunces', serif; font-weight:600; color:var(--gold-soft); font-variant-numeric: tabular-nums; }
+  tr.admin-row td{ color:var(--blue); }
+  .quick-btn{ border:1px solid var(--line); background:transparent; color:var(--text); border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; margin-right:3px; }
+  .quick-btn:hover{ border-color:var(--gold); color:var(--gold-soft); }
+  .quick-btn.sub{ color:var(--red); }
+  .quick-btn.sub:hover{ border-color:var(--red); }
+
+  .msg{ font-size:12.5px; margin-top:10px; min-height:16px; }
+  .msg.ok{ color:var(--green); }
+  .msg.err{ color:var(--red); }
+
+  .search{ margin-bottom:12px; }
+  .search input{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:rgba(14,19,16,0.4); color:var(--text); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>관리자 패널</h1>
+      <div class="sub">가입 승인 · 칩 충전/차감 (셀프 충전은 비활성화됨)</div>
+    </div>
+    <div class="nav">
+      <a href="game.html">게임 테이블로</a>
+      <button id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="panel">
+    <h2>가입 승인 대기 <span class="badge" id="pending-count">0</span></h2>
+    <div id="pending-list"><div class="empty-note">대기 중인 가입 신청이 없습니다.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>칩 충전 / 차감</h2>
+    <div class="recharge-form">
+      <div class="field">
+        <label>아이디</label>
+        <input id="rc-username" list="user-list" placeholder="유저 아이디">
+        <datalist id="user-list"></datalist>
+      </div>
+      <div class="field">
+        <label>금액</label>
+        <input id="rc-amount" type="number" min="1" step="1" placeholder="예: 500">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="mode-toggle">
+          <button type="button" class="add active" data-mode="add">충전 +</button>
+          <button type="button" class="sub" data-mode="sub">차감 −</button>
+        </div>
+      </div>
+      <button class="action" id="rc-submit">적용</button>
+    </div>
+    <div class="msg" id="rc-msg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>유저 목록</h2>
+    <div class="search">
+      <input id="search-input" placeholder="아이디로 검색...">
+    </div>
+    <table>
+      <thead>
+        <tr><th>아이디</th><th>보유 칩</th><th>가입일</th><th>빠른 조정</th></tr>
+      </thead>
+      <tbody id="user-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  const token = localStorage.getItem('cardlab_token');
+  if(!token){ window.location.href = 'login.html'; return; }
+
+  const CHIP = '칩';
+  let users = [];
+  let rcMode = 'add';
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('cardlab_token');
+    localStorage.removeItem('cardlab_username');
+    window.location.href = 'login.html';
+  });
+
+  async function authedFetch(url, options = {}){
+    const headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + token });
+    if(options.body) headers['Content-Type'] = 'application/json';
+    return fetch(url, Object.assign({}, options, { headers }));
+  }
+
+  function fmtDate(ts){ return new Date(ts).toLocaleDateString('ko-KR'); }
+  function fmtChip(n){ return n.toLocaleString('en-US') + CHIP; }
+
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rcMode = btn.dataset.mode;
+      document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  function renderPending(){
+    const pending = users.filter(u => u.status === 'pending');
+    document.getElementById('pending-count').textContent = pending.length;
+    const el = document.getElementById('pending-list');
+    if(pending.length === 0){
+      el.innerHTML = '<div class="empty-note">대기 중인 가입 신청이 없습니다.</div>';
+      return;
+    }
+    el.innerHTML = pending.map(u => `
+      <div class="pending-row">
+        <span>${u.username} <span style="color:var(--muted); font-size:11px;">(${fmtDate(u.createdAt)} 신청)</span></span>
+        <div class="pending-actions">
+          <button class="approve-btn" data-user="${u.username}">승인</button>
+          <button class="reject-btn" data-user="${u.username}">거부</button>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => approveUser(b.dataset.user)));
+    el.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => rejectUser(b.dataset.user)));
+  }
+
+  function renderUsers(filter){
+    const body = document.getElementById('user-table-body');
+    const dataList = document.getElementById('user-list');
+    const approved = users.filter(u => u.status === 'approved');
+    dataList.innerHTML = approved.map(u => `<option value="${u.username}">`).join('');
+
+    const f = (filter || '').toLowerCase();
+    const filtered = approved.filter(u => u.username.toLowerCase().includes(f));
+    body.innerHTML = filtered.map(u => `
+      <tr class="${u.isAdmin ? 'admin-row' : ''}">
+        <td>${u.username}${u.isAdmin ? ' 👑' : ''}</td>
+        <td class="balance-cell">${fmtChip(u.balance)}</td>
+        <td>${fmtDate(u.createdAt)}</td>
+        <td>
+          <button class="quick-btn" data-user="${u.username}" data-amt="100">+100</button>
+          <button class="quick-btn" data-user="${u.username}" data-amt="500">+500</button>
+          <button class="quick-btn sub" data-user="${u.username}" data-amt="-100">-100</button>
+          <button class="quick-btn sub" data-user="${u.username}" data-amt="-500">-500</button>
+        </td>
+      </tr>
+    `).join('');
+
+    body.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => doRecharge(btn.dataset.user, parseInt(btn.dataset.amt, 10)));
+    });
+  }
+
+  async function loadUsers(){
+    const r = await authedFetch('/api/admin/users');
+    if(!r.ok){
+      if(r.status === 403){ alert('관리자 권한이 없습니다.'); window.location.href = 'game.html'; }
+      return;
+    }
+    const data = await r.json();
+    users = data.users;
+    renderPending();
+    renderUsers(document.getElementById('search-input').value);
+  }
+
+  async function approveUser(username){
+    await authedFetch('/api/admin/approve', { method:'POST', body: JSON.stringify({ username }) });
+    loadUsers();
+  }
+  async function rejectUser(username){
+    if(!confirm(`${username} 님의 가입 신청을 거부(삭제)할까요?`)) return;
+    await authedFetch('/api/admin/reject', { method:'POST', body: JSON.stringify({ username }) });
+    loadUsers();
+  }
+
+  async function doRecharge(username, amount){
+    const msg = document.getElementById('rc-msg');
+    msg.textContent = ''; msg.className = 'msg';
+    try{
+      const r = await authedFetch('/api/admin/recharge', { method: 'POST', body: JSON.stringify({ username, amount }) });
+      const data = await r.json();
+      if(!r.ok){ msg.textContent = data.error || '처리에 실패했습니다.'; msg.className = 'msg err'; return; }
+      const verb = amount >= 0 ? '충전' : '차감';
+      msg.textContent = `${data.username}님 ${Math.abs(amount).toLocaleString('en-US')}${CHIP} ${verb} 완료 (현재 ${fmtChip(data.balance)})`;
+      msg.className = 'msg ok';
+      loadUsers();
+    }catch(e){
+      msg.textContent = '서버에 연결할 수 없습니다.'; msg.className = 'msg err';
+    }
+  }
+
+  document.getElementById('rc-submit').addEventListener('click', () => {
+    const username = document.getElementById('rc-username').value.trim();
+    let amount = parseInt(document.getElementById('rc-amount').value, 10);
+    if(!username){ document.getElementById('rc-msg').textContent = '아이디를 입력하세요.'; document.getElementById('rc-msg').className = 'msg err'; return; }
+    if(!amount || amount <= 0){ document.getElementById('rc-msg').textContent = '금액을 올바르게 입력하세요.'; document.getElementById('rc-msg').className = 'msg err'; return; }
+    if(rcMode === 'sub') amount = -amount;
+    doRecharge(username, amount);
+    document.getElementById('rc-amount').value = '';
+  });
+
+  document.getElementById('search-input').addEventListener('input', (e) => renderUsers(e.target.value));
+
+  loadUsers();
+  setInterval(loadUsers, 8000);
+})();
+</script>
+</body>
+</html>
